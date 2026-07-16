@@ -1,0 +1,9 @@
+# Godot's import/cache directory. Regenerated from source; never commit.
+.godot/
+
+# iOS export output: the generated Xcode project, DerivedData, and the engine
+# xcframeworks. ~816MB, all reproducible via:
+#   godot --headless --path . --export-debug "iOS" build/ios/GravityRocketeer.xcodeproj
+build/
+
+.DS_Store

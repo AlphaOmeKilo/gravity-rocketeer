@@ -1,0 +1,31 @@
+; Engine configuration file.
+; Gravity Rocketeer - PoC physics puzzle (Godot 4.x)
+
+config_version=5
+
+[application]
+
+config/name="Gravity Rocketeer"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7", "Mobile")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=true
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+environment/defaults/default_clear_color=Color(0.03, 0.04, 0.09, 1)
+textures/vram_compression/import_etc2_astc=true

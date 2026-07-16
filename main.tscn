@@ -1,0 +1,57 @@
+[gd_scene load_steps=7 format=3 uid="uid://cgrav0rocket0poc"]
+
+[ext_resource type="Script" path="res://main.gd" id="1"]
+[ext_resource type="Script" path="res://earth.gd" id="2"]
+[ext_resource type="Script" path="res://gravity_body.gd" id="3"]
+[ext_resource type="Script" path="res://ship.gd" id="4"]
+[ext_resource type="Script" path="res://debug_overlay.gd" id="5"]
+[ext_resource type="Script" path="res://level_menu.gd" id="6"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1")
+gravitational_constant = 12.0
+launch_speed = 450.0
+landing_distance = 80.0
+world_boundary_scale = 2.5
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(360, 640)
+zoom = Vector2(0.62, 0.62)
+
+[node name="Earth" type="Node2D" parent="."]
+position = Vector2(360, 1154)
+script = ExtResource("2")
+span = 680.0
+dome_height = 46.0
+depth = 1400.0
+
+[node name="Bodies" type="Node2D" parent="."]
+
+[node name="Ship" type="Node2D" parent="."]
+position = Vector2(360, 1135)
+rotation = -1.5707963
+script = ExtResource("4")
+
+[node name="TrailContainer" type="Node2D" parent="."]
+
+[node name="PreviewLine" type="Line2D" parent="."]
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+
+[node name="IntroLabel" type="Label" parent="UILayer"]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 46.0
+offset_top = -760.0
+offset_right = -46.0
+offset_bottom = -120.0
+vertical_alignment = 2
+autowrap_mode = 2
+
+[node name="DebugLayer" type="CanvasLayer" parent="."]
+script = ExtResource("5")
+
+[node name="MenuLayer" type="CanvasLayer" parent="."]
+layer = 10
+script = ExtResource("6")
