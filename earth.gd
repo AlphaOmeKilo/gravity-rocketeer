@@ -58,11 +58,44 @@ func _draw_band(rise: float, y_bottom_offset: float, c_top: Color, c_bottom: Col
 		])
 		draw_polygon(quad, PackedColorArray([c_bottom, c_bottom, c_top, c_top]))
 
+## Speckle the top of the ground with dark-green foliage and pale mineral flecks.
+## Purely decorative: it never touches surface_y_at(), so the launch pad and physics
+## stay put. Clumps thin out with depth so detail concentrates at the visible surface.
+func _draw_surface_detail() -> void:
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 918273  # fixed seed => same terrain every draw
+	var foliage: Color = earth_color.darkened(0.40)
+	var pale: Color = Color(0.90, 0.95, 0.90)
+	var highlight: Color = earth_color.lightened(0.30)
+	for i in range(64):
+		var x: float = rng.randf_range(-span, span)
+		var sy: float = surface_y_at(x)
+		# Bias clumps toward the surface: square the random depth factor.
+		var t: float = rng.randf()
+		var below: float = 4.0 + t * t * 150.0
+		var rad: float = rng.randf_range(2.5, 9.0)
+		var roll: float = rng.randf()
+		var c: Color
+		if roll < 0.62:
+			c = foliage
+		elif roll < 0.82:
+			c = highlight
+		else:
+			c = pale
+		c.a = rng.randf_range(0.14, 0.40) * (1.0 - below / 200.0)
+		if c.a > 0.02:
+			draw_circle(Vector2(x, sy + below), rad, c)
+
 func _draw() -> void:
 	# Ground: lit at the surface, falling into shadow with depth.
 	var lit: Color = earth_color.lightened(0.12)
 	var deep: Color = earth_color.darkened(0.55)
 	_draw_band(0.0, depth, lit, deep)
+
+	# Surface texture: scattered vegetation clumps (dark green) and mineral / snow
+	# flecks (near-white) hugging the surface, so the ground reads as living terrain
+	# rather than a flat green fill. Deterministically seeded => stable every frame.
+	_draw_surface_detail()
 
 	# Thin horizon highlight along the surface curve.
 	var top: PackedVector2Array = PackedVector2Array()

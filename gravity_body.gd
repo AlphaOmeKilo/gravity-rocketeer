@@ -31,6 +31,27 @@ class_name GravityBody
 		body_color = v
 		_apply_uniforms()
 
+## Surface mottling. The disc is tinted between these two shades of body_color by a
+## noise field, so the body reads as terrain rather than flat paint. Left at
+## detail_strength 0 (moons, waypoints) it renders exactly as before.
+@export var detail_dark: Color = Color(0, 0, 0):
+	set(v):
+		detail_dark = v
+		_apply_uniforms()
+@export var detail_light: Color = Color(1, 1, 1):
+	set(v):
+		detail_light = v
+		_apply_uniforms()
+@export_range(0.0, 1.0) var detail_strength: float = 0.0:
+	set(v):
+		detail_strength = v
+		_apply_uniforms()
+## Offsets the noise so no two bodies share a surface. Set per-body at spawn.
+@export var detail_seed: float = 0.0:
+	set(v):
+		detail_seed = v
+		_apply_uniforms()
+
 ## Which archetype this body reads as. See Visuals.BodyKind.
 @export var kind: Visuals.BodyKind = Visuals.BodyKind.ROCKY:
 	set(v):
@@ -78,6 +99,10 @@ func _apply_uniforms() -> void:
 	var half: float = _half_extent()
 	mat.set_shader_parameter("kind", int(kind))
 	mat.set_shader_parameter("body_color", body_color)
+	mat.set_shader_parameter("detail_dark", detail_dark)
+	mat.set_shader_parameter("detail_light", detail_light)
+	mat.set_shader_parameter("detail_strength", detail_strength)
+	mat.set_shader_parameter("detail_seed", detail_seed)
 	mat.set_shader_parameter("physical_frac", physical_radius / half)
 	mat.set_shader_parameter("influence_frac", influence_radius / half)
 	# One world unit expressed in the shader's -1..1 quad space, for edge AA.

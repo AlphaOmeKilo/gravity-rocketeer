@@ -25,6 +25,10 @@ const SIM_DT: float = 1.0 / 60.0
 const PREVIEW_MAX_STEPS: int = 500
 ## The aim preview never draws longer than this many world units of path.
 const PREVIEW_MAX_LENGTH: float = 1000.0
+## From this level index (0-based) on, the aim preview is halved -- later puzzles
+## reveal less of the trajectory, so the player has to read the gravity themselves.
+const PREVIEW_SHORTEN_LEVEL: int = 4   # "Level 5" in the level list
+const PREVIEW_SHORTEN_FACTOR: float = 0.5
 const MIN_DRAG: float = 18.0
 const FAIL_RESET_DELAY: float = 1.0
 ## Delay after a win before the "Landed!" modal slides in.
@@ -103,56 +107,65 @@ const RED_GIANT_COLOR: Color = Color(0.88, 0.24, 0.2) # red giant blocker
 const MOON_COLOR: Color = Color(0.92, 0.92, 0.95)     # moons are always white
 ## A moon's radius as a fraction of the blocker it orbits (kept proportionate).
 const MOON_RADIUS_RATIO: float = 0.24
-## A moon's gravity-well glow radius as a multiple of its own radius.
-const MOON_INFLUENCE_RATIO: float = 3.5
 const WAYPOINT_COLOR: Color = Color(0.35, 0.6, 1.0)   # waypoints are blue
 ## A waypoint's radius as a fraction of the target size.
 const WAYPOINT_RADIUS_RATIO: float = 0.75
+## The station drawn on top of a waypoint. Preloaded rather than referenced by a
+## global class_name, so running straight from the CLI needs no prior editor scan.
+const STATION_SCRIPT: Script = preload("res://station.gd")
+
+## Every body's gravity-well radius is derived from its mass, not hand-set, so the
+## glow always marks where the pull still bends the flight path -- and it can't drift
+## out of sync when a mass is tuned. From the flyby impulse dv ~= 2*g*mass/(b*v), the
+## well edge is the closest approach b at which a pass is deflected by this many
+## units/s. Reach scales with mass; one shared threshold makes every well comparable.
+const INFLUENCE_DEFLECTION: float = 115.0
 
 # Level definitions. Each: a target and a list of blockers, given as
 # {pos, mass, radius, influence}. Positions are in the 720x1280 base space.
 const LEVELS: Array = [
 	{ # Level 1: just the target, no blockers -- an intro to flying to the target.
 		"intro": "Hello commander...\nDrag anywhere to aim, then release to launch.\nSteer the rocket to the green planet.\nGravity bends your path -- use it, don't fight it.\nDrift off into deep space on a straight shot? That would be embarrassing.",
-		"target": {"pos": Vector2(360, -200), "mass": 350000.0, "radius": 68.0, "influence": 220.0},
+		"target": {"pos": Vector2(360, -200), "mass": 350000.0, "radius": 68.0},
 		"blockers": [],
 	},
 	{ # Level 2: a single big blocker directly between the pad and the target.
 		"intro": "Well well, an obstacle. How rude.\nThat planet sits squarely between us and our destination.\nCurve around it. Try not to explode -- it voids the warranty.",
-		"target": {"pos": Vector2(360, -200), "mass": 350000.0, "radius": 68.0, "influence": 220.0},
+		"target": {"pos": Vector2(360, -200), "mass": 350000.0, "radius": 68.0},
 		"blockers": [
-			{"pos": Vector2(360, 840), "mass": 1000000.0, "radius": 125.0, "influence": 340.0},
+			{"pos": Vector2(360, 840), "mass": 1000000.0, "radius": 125.0},
 		],
 	},
 	{ # Level 3: a slalom -- two blockers staggered on Y (and opposite sides) so
 	  # the ship passes through one gravity well at a time, with a wide gap
 	  # between the upper (second) blocker and the target.
 		"intro": "Ah, twins. How delightful for everyone.\nWeave between the wells, one at a time.\nDeep breaths, commander.",
-		"target": {"pos": Vector2(360, -200), "mass": 350000.0, "radius": 68.0, "influence": 220.0},
+		"target": {"pos": Vector2(360, -200), "mass": 350000.0, "radius": 68.0},
 		"blockers": [
-			{"pos": Vector2(175, 870), "mass": 650000.0, "radius": 125.0, "influence": 300.0},
-			{"pos": Vector2(545, 615), "mass": 650000.0, "radius": 125.0, "influence": 300.0},
+			{"pos": Vector2(93, 927), "mass": 650000.0, "radius": 125.0},
+			{"pos": Vector2(627, 558), "mass": 650000.0, "radius": 125.0},
 		],
 	},
 	{ # Level 4: like level 2 (single blocker) but with a white moon orbiting the
 	  # blocker -- a moving mass, so timing the launch matters.
 		"intro": "See that little white moon? It orbits.\nTime your launch -- the gravity assist is now a moving target.",
-		"target": {"pos": Vector2(360, -200), "mass": 350000.0, "radius": 68.0, "influence": 220.0},
+		"target": {"pos": Vector2(360, -200), "mass": 350000.0, "radius": 68.0},
 		"blockers": [
-			{"pos": Vector2(360, 840), "mass": 1000000.0, "radius": 125.0, "influence": 340.0,
+			{"pos": Vector2(360, 840), "mass": 1000000.0, "radius": 125.0,
 				"moon": {"mass": 90000.0, "orbit_radius": 290.0, "orbit_speed": 0.9, "phase": 0.0}},
 		],
 	},
 	{ # Level 5: a red giant on the left and a blue waypoint level with it on the
 	  # right that you land on and relaunch from toward the target.
-		"intro": "That red giant is enormous -- its gravity yanks hard.\nUse that to reach the target, OR why not try landing on the blue waypoint and save yourself the hassle?",
-		"target": {"pos": Vector2(360, -180), "mass": 350000.0, "radius": 68.0, "influence": 220.0},
+		"intro": "That red giant is enormous -- its gravity yanks hard.\nSee the station down to your right? Dock there, then relaunch toward the target -- a safe hop that never touches the giant's pull.\nOr chance a slingshot around the giant, if you fancy living dangerously.",
+		"target": {"pos": Vector2(360, -180), "mass": 350000.0, "radius": 68.0},
 		"blockers": [
-			{"pos": Vector2(100, 760), "mass": 2800000.0, "radius": 220.0, "influence": 600.0, "type": "red_giant"},
+			{"pos": Vector2(-20, 780), "mass": 1400000.0, "radius": 220.0, "type": "red_giant"},
 		],
 		"waypoints": [
-			# Opposite side of the screen from the red giant, level with it on Y.
-			{"pos": Vector2(720, 760), "mass": 220000.0, "influence": 180.0},
+			# Lower-right, near the launch pad. Zero mass: the station has no pull and
+			# no gravity well -- it's a pure dock you aim through, not a mass to slingshot.
+			{"pos": Vector2(760, 1090), "mass": 0.0},
 		],
 	},
 	{ # Level 6: twin slalom (like level 3) but BOTH blockers now carry an orbiting
@@ -161,12 +174,12 @@ const LEVELS: Array = [
 	  # The lower blocker is 10% heavier and larger than its twin, so the weave is
 	  # asymmetric -- the first well you meet pulls harder than the second.
 		"intro": "Twins again -- but these ones brought pets.\nEach well now has a moon on a leash, and they don't take turns nicely.\nRead the dance, thread the gap, and for the love of physics -- time your launch.",
-		"target": {"pos": Vector2(360, -200), "mass": 350000.0, "radius": 68.0, "influence": 220.0},
+		"target": {"pos": Vector2(360, -200), "mass": 350000.0, "radius": 68.0},
 		"blockers": [
-			{"pos": Vector2(175, 870), "mass": 715000.0, "radius": 137.5, "influence": 330.0,
-				"moon": {"mass": 90000.0, "orbit_radius": 270.0, "orbit_speed": 0.95, "phase": 0.0}},
-			{"pos": Vector2(545, 615), "mass": 650000.0, "radius": 125.0, "influence": 300.0,
-				"moon": {"mass": 90000.0, "orbit_radius": 270.0, "orbit_speed": 0.95, "phase": 3.14159}},
+			{"pos": Vector2(130, 900), "mass": 715000.0, "radius": 137.5,
+				"moon": {"mass": 90000.0, "orbit_radius": 235.0, "orbit_speed": 0.95, "phase": 0.0}},
+			{"pos": Vector2(510, 340), "mass": 650000.0, "radius": 125.0,
+				"moon": {"mass": 90000.0, "orbit_radius": 240.0, "orbit_speed": 1.15, "phase": 3.14159}},
 		],
 	},
 ]
@@ -263,14 +276,22 @@ func _load_level(index: int) -> void:
 	launch_position = base_launch_position # a fresh attempt starts at the pad
 	var data: Dictionary = LEVELS[current_level]
 	target_planet = _make_body(data["target"], TARGET_COLOR)
+	_style_green(target_planet, _body_rng("target"))
+	var bi: int = 0
 	for bdata in data["blockers"]:
 		var is_giant: bool = bdata.get("type", "") == "red_giant"
 		var col: Color = RED_GIANT_COLOR if is_giant else BLOCKER_COLOR
 		var k: Visuals.BodyKind = Visuals.BodyKind.GIANT if is_giant else Visuals.BodyKind.ROCKY
 		var b: GravityBody = _make_body(bdata, col, k)
+		var rng: RandomNumberGenerator = _body_rng("blocker%d" % bi)
+		if is_giant:
+			_style_giant(b, rng)
+		else:
+			_style_rocky(b, rng)
 		blockers.append(b)
 		if bdata.has("moon"):
 			_make_moon(bdata["moon"], b)
+		bi += 1
 	for wdata in data.get("waypoints", []):
 		_make_waypoint(wdata)
 	# Physics acts on blockers + moons + waypoints + target.
@@ -285,18 +306,68 @@ func _load_level(index: int) -> void:
 	_reset_ship()
 	_start_intro(data.get("intro", ""))
 
+## Gravity-well radius for a body of this mass -- see INFLUENCE_DEFLECTION. A massless
+## body (the station) gets no well, matching its lack of pull.
+func _influence_for_mass(mass: float) -> float:
+	if mass <= 0.0:
+		return 0.0
+	return 2.0 * gravitational_constant * mass / (launch_speed * INFLUENCE_DEFLECTION)
+
 func _make_body(d: Dictionary, color: Color,
 		kind: Visuals.BodyKind = Visuals.BodyKind.ROCKY) -> GravityBody:
 	var b: GravityBody = GravityBody.new()
 	b.position = d["pos"]
 	b.mass = d["mass"]
 	b.physical_radius = d["radius"]
-	b.influence_radius = d["influence"]
+	b.influence_radius = _influence_for_mass(b.mass)
 	b.body_color = color
 	b.kind = kind
 	b.show_influence = true
 	bodies_container.add_child(b)
 	return b
+
+## A per-body RNG seeded from the level + a tag, so every planet's random look is
+## stable across replays but each planet differs from its neighbours.
+func _body_rng(tag: String) -> RandomNumberGenerator:
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = hash("%d/%s" % [current_level, tag])
+	return rng
+
+## Rocky blocker: a greyish world with a faint random hue -- like the terrestrial /
+## rocky types (Mercury grey, rusty tan, dusty ochre). Low saturation keeps it
+## reading as rock, not candy. Mottled between a darker and lighter tint of itself.
+func _style_rocky(b: GravityBody, rng: RandomNumberGenerator) -> void:
+	var hue: float = rng.randf()
+	var sat: float = rng.randf_range(0.10, 0.24)
+	var val: float = rng.randf_range(0.46, 0.64)
+	var base: Color = Color.from_hsv(hue, sat, val)
+	b.body_color = base
+	b.detail_dark = base.darkened(rng.randf_range(0.30, 0.45))
+	b.detail_light = base.lightened(rng.randf_range(0.22, 0.38))
+	b.detail_strength = rng.randf_range(0.45, 0.65)
+	b.detail_seed = rng.randf_range(0.0, 100.0)
+
+## Red giant: same mottled treatment but anchored to red. The hue only jitters
+## across red-orange and saturation stays high, so it stays unmistakably a red
+## giant while gaining surface streaks and a little grey.
+func _style_giant(b: GravityBody, rng: RandomNumberGenerator) -> void:
+	var hue: float = wrapf(rng.randf_range(-0.02, 0.045), 0.0, 1.0)
+	var sat: float = rng.randf_range(0.55, 0.72)
+	var val: float = rng.randf_range(0.72, 0.86)
+	var base: Color = Color.from_hsv(hue, sat, val)
+	b.body_color = base
+	b.detail_dark = base.darkened(rng.randf_range(0.30, 0.45))
+	b.detail_light = base.lightened(rng.randf_range(0.18, 0.30))
+	b.detail_strength = rng.randf_range(0.40, 0.55)
+	b.detail_seed = rng.randf_range(0.0, 100.0)
+
+## Green world (home + target): keep the signature green, but break up the disc
+## with white highlands and dark-green lowlands so it reads as a living planet.
+func _style_green(b: GravityBody, rng: RandomNumberGenerator) -> void:
+	b.detail_dark = Visuals.PLANET_GREEN.darkened(rng.randf_range(0.45, 0.58))
+	b.detail_light = Color(0.92, 0.96, 0.93)
+	b.detail_strength = rng.randf_range(0.42, 0.55)
+	b.detail_seed = rng.randf_range(0.0, 100.0)
 
 ## Spawn a white moon that orbits `parent`. Its radius is kept proportionate to
 ## the parent blocker. Tracked in `moons` and advanced each frame.
@@ -304,7 +375,7 @@ func _make_moon(m: Dictionary, parent: GravityBody) -> void:
 	var moon: GravityBody = GravityBody.new()
 	moon.mass = m["mass"]
 	moon.physical_radius = parent.physical_radius * MOON_RADIUS_RATIO
-	moon.influence_radius = moon.physical_radius * MOON_INFLUENCE_RATIO
+	moon.influence_radius = _influence_for_mass(moon.mass)
 	moon.body_color = MOON_COLOR
 	moon.kind = Visuals.BodyKind.MOON
 	moon.show_influence = true # draw the moon's gravity-well glow too
@@ -349,10 +420,17 @@ func _make_waypoint(w: Dictionary) -> void:
 	wp.position = w["pos"]
 	wp.mass = w["mass"]
 	wp.physical_radius = target_planet.physical_radius * WAYPOINT_RADIUS_RATIO
-	wp.influence_radius = w.get("influence", wp.physical_radius * 3.0)
+	wp.influence_radius = _influence_for_mass(wp.mass) # 0 mass => no pull, no well
 	wp.body_color = WAYPOINT_COLOR
+	wp.kind = Visuals.BodyKind.STATION # draw the well glow but no planet disc
 	wp.show_influence = true
 	bodies_container.add_child(wp)
+	# The visible checkpoint is a docked station, drawn on top of the well glow.
+	# Preloaded (not a global class_name) so a fresh CLI run needs no editor scan.
+	var station: Node2D = STATION_SCRIPT.new()
+	station.radius = wp.physical_radius
+	station.accent = WAYPOINT_COLOR
+	wp.add_child(station)
 	waypoints.append(wp)
 
 ## Land on a waypoint: bank the leg so far as a trail, park the ship there, make
@@ -625,6 +703,13 @@ func _aim() -> Dictionary:
 		return {"valid": false}
 	return {"valid": true, "dir": v / dist}
 
+## Visible length cap for the aim preview at the current level. Halved from
+## PREVIEW_SHORTEN_LEVEL on, so late puzzles show less of the trajectory.
+func _preview_max_length() -> float:
+	if current_level >= PREVIEW_SHORTEN_LEVEL:
+		return PREVIEW_MAX_LENGTH * PREVIEW_SHORTEN_FACTOR
+	return PREVIEW_MAX_LENGTH
+
 func _update_preview() -> void:
 	var aim: Dictionary = _aim()
 	if not aim.valid:
@@ -639,13 +724,14 @@ func _update_preview() -> void:
 	# body of mass -- append the contact point so the line reaches the body
 	# surface, then stop; nothing past the impact is shown. The line is also
 	# capped at PREVIEW_MAX_LENGTH world units, trimmed to end exactly there.
+	var max_length: float = _preview_max_length()
 	var drawn_len: float = 0.0
 	for i in range(PREVIEW_MAX_STEPS):
 		var step: Array = _sim_step(pos, vel, SIM_DT)
 		var next_pos: Vector2 = step[0]
 		var seg: float = pos.distance_to(next_pos)
-		if drawn_len + seg >= PREVIEW_MAX_LENGTH:
-			var t: float = (PREVIEW_MAX_LENGTH - drawn_len) / seg if seg > 0.0 else 0.0
+		if drawn_len + seg >= max_length:
+			var t: float = (max_length - drawn_len) / seg if seg > 0.0 else 0.0
 			pts.append(pos.lerp(next_pos, t))
 			break
 		drawn_len += seg
@@ -685,7 +771,6 @@ func _try_launch() -> void:
 	# surface to kick up.
 	var from_pad: bool = launch_position.is_equal_approx(base_launch_position)
 	Effects.liftoff(self, ship.global_position, dir, from_pad)
-	shake_remaining = Visuals.SHAKE_TIME
 	state = State.FLYING
 
 # ---------------------------------------------------------------------------

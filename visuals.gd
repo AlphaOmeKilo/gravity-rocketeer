@@ -28,9 +28,11 @@ const RIM_POWER: float = 3.0
 ## corona or lifts albedo. Keeping the shading identical is what makes the bodies
 ## read as one family.
 enum BodyKind {
-	ROCKY,  ## target + blockers
-	GIANT,  ## red giant: same shading, wider corona to carry its scale
-	MOON,   ## small, high albedo
+	ROCKY,   ## target + blockers
+	GIANT,   ## red giant: same shading, wider corona to carry its scale
+	MOON,    ## small, high albedo
+	STATION, ## landable checkpoint: no planet disc, just the well glow; a Station
+	         ## node draws the structure on top.
 }
 
 # --- Palette ---------------------------------------------------------------
